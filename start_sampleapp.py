@@ -46,10 +46,10 @@ import json
 
 
 from daemon.response import Response
-users = {
-    "tien": "deptraiqua",
-    "admin": "password"
-}
+# users = {
+#     "tien": "deptraiqua",
+#     "admin": "password"
+# }
 
 @app.route('/login', methods=['POST'])
 def login(headers="guest", body="anonymous"):
@@ -68,23 +68,12 @@ def login(headers="guest", body="anonymous"):
 
     print(f"[SampleApp] Login attempt - User: {username}, Pass: {password}")
     
-
-    is_valid = False
-    with users_lock:
-        if username in users and users[username] == password:
-            is_valid = True
-
+    is_valid = (username == "tien" and password == "deptraiqua") or \
+               (username == "admin" and password == "password")
 
     if is_valid:
         print(f"[SampleApp] User '{username}' authenticated successfully.")
-        ip = body.get('IP')
-        port = body.get('Port')
-
-        with peers_lock:
-            active_peers[username] = {"ip":ip, "port":port, "time":time.time()}
-            print(active_peers)
-        
-
+        # ...
         return 'Login Success'
     else:
         print(f"[SampleApp] Authentication failed for user '{username}'.")

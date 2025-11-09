@@ -422,7 +422,7 @@ class Response():
             else:
                 request.path = '/index.html'
                 request.method = 'GET'
-        #Added by Duong 26/10/2025
+       
 		# if request.path.endswith('login'):
   #           if not request.auth:
   #               return self.build_unauthorized()
@@ -453,7 +453,7 @@ class Response():
         #
         # TODO: add support objects
         #
-        #Added by Duong 23/10/2025
+       
         elif mime_type == 'image/x-icon':
             base_dir = self.prepare_content_type(mime_type = 'image/x-icon')
         elif mime_type == 'image/png':
