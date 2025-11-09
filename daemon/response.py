@@ -163,22 +163,20 @@ class Response():
                 base_dir = BASE_DIR+"static/"
             elif sub_type == 'html':
                 base_dir = BASE_DIR+"www/"
-            elif sub_type in ['csv','xml']:
-                base_dir = BASE_DIR+"static/data/"
             else:
-                self.handle_text_other(sub_type)
+                handle_text_other(sub_type)
         elif main_type == 'image':
-            base_dir = BASE_DIR+"static/"
+            if sub_type == 'png':
+                base_dir = BASE_DIR+"static/"
+            elif sub_type == 'x-icon':
+                base_dir = BASE_DIR+"static/images/"
             self.headers['Content-Type']='image/{}'.format(sub_type)
         elif main_type == 'application':
+            base_dir = BASE_DIR+"apps/"
             self.headers['Content-Type']='application/{}'.format(sub_type)
-            if sub_type in ['json','pdf','zip']:
-                base_dir = BASE_DIR+"static/files/"
-            else:
-                base_dir = BASE_DIR+"apps/"
-        elif main_type == 'video':
-            base_dir = BASE_DIR+"static/videos/"
-            self.headers['Content-Type']='video/{}'.format(sub_type)
+        # elif main_type == 'video':
+        #     base_dir = BASE_DIR+"static/videos/"
+        #     self.headers['Content-Type']='video/{}'.format(sub_type)
         #  TODO: process other mime_type
         #        application/xml       
         #        application/zip
@@ -242,7 +240,7 @@ class Response():
                 "Cache-Control": "no-cache",
                 "Content-Type": "{}".format(self.headers['Content-Type']),
                 "Content-Length": "{}".format(len(self._content)),
-#                "Cookie": "{}".format(reqhdr.get("Cookie", "sessionid=xyz789")), #dummy cooki
+               "Cookie": "{}".format(reqhdr.get("Cookie", "sessionid=xyz789")), #dummy cooki
         #
         # TODO prepare the request authentication
         #
@@ -255,14 +253,20 @@ class Response():
                 "User-Agent": "{}".format(reqhdr.get("User-Agent", "Chrome/123.0.0.0")),
                 
                 "Server": "WeApRous-HTTP-Server/1.0",
-                "Cookie": "; ".join(f"{k}={v}" for k, v in request.cookies.items())
-                    if hasattr(request, 'cookies') else "",
+                # "Cookie": "; ".join(f"{k}={v}" for k, v in request.cookies.items())
+                #     if hasattr(request, 'cookies') else "",
                 "X-Frame-Options": "SAMEORIGIN",
                 "X-Content-Type-Options": "nosniff",
                 "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
                 "Referrer-Policy": "no-referrer",
                 "Permissions-Policy": "geolocation=(), microphone=(), camera=()"
             }
+        if request.auth:
+            if headers.get("Set-Cookie", ' ') == ' ':
+                headers["Set-Cookie"] = "{}".format(request.auth)
+        
+        
+
 
         # Header text alignment
             #
@@ -298,8 +302,101 @@ class Response():
                 "\r\n"
                 "404 Not Found"
             ).encode('utf-8')
+    def build_unauthorized(self):
+        """
+        Constructs a standard 401 Unauthorized page HTTP response.
+
+        :rtype bytes: Encoded 401.
+        """
+
+        return (
+                "HTTP/1.1 401 Unauthorized\r\n"
+                "Access-Control-Allow-Origin: *\r\n"
+                "Accept-Ranges: bytes\r\n"
+                "Content-Type: text/html\r\n"
+                "Content-Length: 16\r\n"
+                "Cache-Control: max-age=86000\r\n"
+                "Connection: close\r\n"
+                "\r\n"
+                "401 Unauthorized"
+            ).encode('utf-8')
 
 
+
+    # def build_response(self, request):
+    #     """
+    #     Builds a full HTTP response including headers and content based on the request.
+
+    #     :params request (class:`Request <Request>`): incoming request object.
+
+    #     :rtype bytes: complete HTTP response using prepared headers and content.
+    #     """
+
+    #     path = request.path
+    #     mime_type = self.get_mime_type(path)
+    #     print(("[Response] {} path {} mime_type {}".format(request.method, request.path, mime_type)))
+
+    #     base_dir = ""
+
+    #     #If HTML, parse and serve embedded objects
+    #     # if path.endswith('.html') or mime_type == 'text/html':
+    #     #     base_dir = self.prepare_content_type(mime_type = 'text/html')
+    #     # elif mime_type == 'text/css':
+    #     #     base_dir = self.prepare_content_type(mime_type = 'text/css')
+    #     # elif mime_type.startswith('image/'):
+    #     #     base_dir = self.prepare_content_type(mime_type = mime_type)
+    #     # elif mime_type.startswith('video/'):
+    #     #     base_dir = self.prepare_content_type(mime_type = mime_type)
+    #     # elif mime_type in ['application/json','application/pdf','application/zip', 'text/csv','text/xml']:
+    #     #     base_dir = self.prepare_content_type(mime_type = mime_type)
+    #     # #
+    #     # # TODO: add support objects
+    #     # #
+    #     # else:
+    #     #     print(("[Response] unsupported MIME type: {}".format(mime_type)))
+    #     #     return self.build_notfound()
+
+    #     # c_len, self._content = self.build_content(path, base_dir)
+    #     # if c_len == 0:
+    #     #     return self.build_notfound()
+
+    #     # self._header = self.build_response_header(request)
+    #     # return self._header + self._content
+    #     if hasattr(request, 'body_override') and request.body_override is not None:
+    #     # nếu route trả str hoặc bytes
+    #         content = request.body_override
+    #         if isinstance(content, str):
+    #             self._content = content.encode('utf-8')
+    #         else:
+    #             self._content = content
+    #         self.headers['Content-Type'] = 'text/html'
+    #         self.headers = self.build_response_header(request)
+    #         return self._header + self._content
+    #     if getattr(self, '_content', False):
+    #         self.headers['Content-Type'] = getattr(self, 'mime_type', 'text/html')
+    #         self._header = self.build_response_header(request)
+    #         return self._header + self._content
+    # # Nếu request bình thường (GET file)
+    #     if path.endswith('.html') or mime_type == 'text/html':
+    #         base_dir = self.prepare_content_type(mime_type='text/html')
+    #     elif mime_type == 'text/css':
+    #         base_dir = self.prepare_content_type(mime_type='text/css')
+    #     elif mime_type.startswith('image/'):
+    #         base_dir = self.prepare_content_type(mime_type=mime_type)
+    #     elif mime_type.startswith('video/'):
+    #         base_dir = self.prepare_content_type(mime_type=mime_type)
+    #     elif mime_type in ['application/json','application/pdf','application/zip', 'text/csv','text/xml']:
+    #         base_dir = self.prepare_content_type(mime_type=mime_type)
+    #     else:
+    #         print(f"[Response] unsupported MIME type: {mime_type}")
+    #         return self.build_notfound()
+
+    #     c_len, self._content = self.build_content(path, base_dir)
+    #     if c_len == 0:
+    #         return self.build_notfound()
+
+    #     self._header = self.build_response_header(request)
+    #     return self._header + self._content
     def build_response(self, request):
         """
         Builds a full HTTP response including headers and content based on the request.
@@ -308,10 +405,43 @@ class Response():
 
         :rtype bytes: complete HTTP response using prepared headers and content.
         """
-
+        if request.body_override:
+            
+            if request.headers["Cookie"] == '':
+                print('--------------------------------------------')
+                return self.build_unauthorized()
+            print("[Response] Building a dynamic response from hook.")
+            self._content = request.body_override
+            self.headers['Content-Type'] = request.content_type_override
+            self._header = self.build_response_header(request) 
+            return self._header + self._content
+        
+        if request.path.endswith('login') or request.path.endswith('register'):
+            if not request.auth:
+                return self.build_unauthorized()
+            else:
+                request.path = '/index.html'
+                request.method = 'GET'
+        #Added by Duong 26/10/2025
+		# if request.path.endswith('login'):
+  #           if not request.auth:
+  #               return self.build_unauthorized()
+  #           else:
+  #               request.path = '/index.html'
+  #               request.method = 'GET'
         path = request.path
+        
+        
+        if path.endswith('test.html'):
+            # print("[Respone-Build]:")
+            # print(self.cookies)
+            # if self.cookies == {}:
+            #     return self.build_unauthorized()
+            if request.headers["Cookie"] == '':
+                return self.build_unauthorized()
+
         mime_type = self.get_mime_type(path)
-        print(("[Response] {} path {} mime_type {}".format(request.method, request.path, mime_type)))
+        print("[Response] {} path {} mime_type {}".format(request.method, request.path, mime_type))
 
         base_dir = ""
 
@@ -320,22 +450,18 @@ class Response():
             base_dir = self.prepare_content_type(mime_type = 'text/html')
         elif mime_type == 'text/css':
             base_dir = self.prepare_content_type(mime_type = 'text/css')
-        elif mime_type.startswith('image/'):
-            base_dir = self.prepare_content_type(mime_type = mime_type)
-        elif mime_type.startswith('video/'):
-            base_dir = self.prepare_content_type(mime_type = mime_type)
-        elif mime_type in ['application/json','application/pdf','application/zip', 'text/csv','text/xml']:
-            base_dir = self.prepare_content_type(mime_type = mime_type)
         #
         # TODO: add support objects
         #
+        #Added by Duong 23/10/2025
+        elif mime_type == 'image/x-icon':
+            base_dir = self.prepare_content_type(mime_type = 'image/x-icon')
+        elif mime_type == 'image/png':
+            base_dir = self.prepare_content_type(mime_type = 'image/png')
         else:
-            print(("[Response] unsupported MIME type: {}".format(mime_type)))
             return self.build_notfound()
 
         c_len, self._content = self.build_content(path, base_dir)
-        if c_len == 0:
-            return self.build_notfound()
-
         self._header = self.build_response_header(request)
+
         return self._header + self._content

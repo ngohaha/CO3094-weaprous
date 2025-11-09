@@ -106,69 +106,105 @@ class HttpAdapter:
         msg = conn.recv(1024).decode()
         req.prepare(msg, routes)
 
-        try: 
-            msg = conn.recv(1024).decode(error='ignore')
-            if not msg:
-                print(f"[HttpAdapter] No data received from {addr}")
-                conn.close()
-                return
-            req.prepare(msg, routes)
-            if req.hook:
-                print(f"[HttpAdapter] Hook matched for {req.method} {req.path}")
+        # try: 
+        #     msg = conn.recv(1024).decode(error='ignore')
+        #     if not msg:
+        #         print(f"[HttpAdapter] No data received from {addr}")
+        #         conn.close()
+        #         return
+        #     req.prepare(msg, routes)
+        #     if req.hook:
+        #         print(f"[HttpAdapter] Hook matched for {req.method} {req.path}")
 
-                if isinstance(req.body, dict):
-                    req.body['IP'] = self.connaddr[0]
-                    req.body['Port'] = self.connaddr[1]
-                return_value = req.hook(req.header, req.body)
+        #         if isinstance(req.body, dict):
+        #             req.body['IP'] = self.connaddr[0]
+        #             req.body['Port'] = self.connaddr[1]
+        #         return_value = req.hook(req.header, req.body)
 
-                if isinstance(return_value, tuple):
-                # (content_type, body)
-                    content_type, body = return_value
-                    body_bytes = body.encode('utf-8')
-                    headers = (
-                        "HTTP/1.1 200 OK\r\n"
-                        f"Content-Type: {content_type}\r\n"
-                        f"Content-Length: {len(body_bytes)}\r\n"
-                        "Connection: close\r\n\r\n"
-                    )
-                    conn.sendall(headers.encode('utf-8') + body_bytes)
-                    print(f"[HttpAdapter] Response sent to {addr} with content type {content_type}")
-                    return
-                elif isinstance(return_value, str):
-                    body = return_value
-                    body_bytes = body.encode('utf-8')
-                    headers = (
-                        "HTTP/1.1 200 OK\r\n"
-                        "Content-Type: text/plain\r\n"
-                        f"Content-Length: {len(body_bytes)}\r\n"
-                        "Connection: close\r\n\r\n"
-                    )
-                    conn.sendall(headers.encode('utf-8') + body_bytes)
-                    print(f"[HttpAdapter] Response sent to {addr} with plain text")
-                    return
-                else: 
-                    response = resp.build_response(req)
+        #         if isinstance(return_value, tuple):
+        #         # (content_type, body)
+        #             content_type, body = return_value
+        #             body_bytes = body.encode('utf-8')
+        #             headers = (
+        #                 "HTTP/1.1 200 OK\r\n"
+        #                 f"Content-Type: {content_type}\r\n"
+        #                 f"Content-Length: {len(body_bytes)}\r\n"
+        #                 "Connection: close\r\n\r\n"
+        #             )
+        #             conn.sendall(headers.encode('utf-8') + body_bytes)
+        #             print(f"[HttpAdapter] Response sent to {addr} with content type {content_type}")
+        #             return
+        #         elif isinstance(return_value, str):
+        #             body = return_value
+        #             body_bytes = body.encode('utf-8')
+        #             headers = (
+        #                 "HTTP/1.1 200 OK\r\n"
+        #                 "Content-Type: text/plain\r\n"
+        #                 f"Content-Length: {len(body_bytes)}\r\n"
+        #                 "Connection: close\r\n\r\n"
+        #             )
+        #             conn.sendall(headers.encode('utf-8') + body_bytes)
+        #             print(f"[HttpAdapter] Response sent to {addr} with plain text")
+        #             return
+        #         else: 
+        #             response = resp.build_response(req)
             
-            else:
-                response = resp.build_response(req)
+        #     else:
+        #         response = resp.build_response(req)
             
-            resp.cookies = self.extract_cookies(req, resp)
-            conn.sendall(response)
-            print(f"[HttpAdapter] Response sent to {addr}")
-        except Exception as e:
-            error_msg = f"Internal Server Error: {e}"
-            conn.sendall(
-                b"HTTP/1.1 500 Internal Server Error\r\n"
-                b"Content-Type: text/plain\r\n"
-                + f"Content-Length: {len(error_msg)}\r\n".encode('utf-8')
-                + error_msg.encode()
-            )
-            print(f"[HttpAdapter] Exception for {addr}: {e}")
-        finally:
-            conn.close()
-            print(f"[HttpAdapter] Connection closed for {addr}")
+        #     resp.cookies = self.extract_cookies(req, resp)
+        #     conn.sendall(response)
+        #     print(f"[HttpAdapter] Response sent to {addr}")
+        # except Exception as e:
+        #     error_msg = f"Internal Server Error: {e}"
+        #     conn.sendall(
+        #         b"HTTP/1.1 500 Internal Server Error\r\n"
+        #         b"Content-Type: text/plain\r\n"
+        #         + f"Content-Length: {len(error_msg)}\r\n".encode('utf-8')
+        #         + error_msg.encode()
+        #     )
+        #     print(f"[HttpAdapter] Exception for {addr}: {e}")
+        # finally:
+        #     conn.close()
+        #     print(f"[HttpAdapter] Connection closed for {addr}")
 
-    @property
+        if not routes:
+            print("[Error]: No routes defined.")
+        if req.hook:
+            print("[HttpAdapter] hook in route-path METHOD {} PATH {}".format(req.hook._route_path,req.hook._route_methods))
+
+            req.body['IP'] = self.connaddr[0]
+            req.body['Port'] = self.connaddr[1]
+
+            return_value = req.hook(req.headers, req.body)
+            if type(return_value) is tuple:
+                print(f"[HttpAdapter] Dynamic route detected, content_type={return_value[0]}")
+                # req.path = "/api/dynamic_response.json"      
+                req.body_override = (return_value[1] or "").encode('utf-8') 
+                req.content_type_override = return_value[0]  
+            elif return_value == 'Login Success' or return_value == 'Register Success':
+                req.auth = True
+            elif return_value == 'Login Fail' or return_value == 'Register Fail':
+                req.auth = False
+            # elif return_value == '/chat.html':
+            #     req.path = return_value
+            
+            #
+            # TODO: handle for App hook here
+            #
+
+        # Build response
+        resp.cookies = self.extract_cookies(req, resp)
+        response = resp.build_response(req)
+
+        #print(response)
+        conn.sendall(response)
+
+        conn.close()
+        print("[HttpAdapter] Connection closed for {}:{}".format(addr[0], addr[1]))
+
+
+    # @property
     def extract_cookies(self, req, resp):
         """
         Build cookies from the :class:`Request <Request>` headers.

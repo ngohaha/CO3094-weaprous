@@ -77,6 +77,7 @@ def run_backend(ip, port, routes):
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     try:
+        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         server.bind((ip, port))
         server.listen(50)
         print(("[Backend] Listening on port {}".format(port)))
@@ -85,13 +86,23 @@ def run_backend(ip, port, routes):
 
         while True:
             conn, addr = server.accept()
+            t = threading.Thread(target=handle_client, args=(ip, port, conn, addr, routes), daemon=True)
+            t.start()
+            print(("[Backend] Accepted connection from {}:{}".format(addr[0], addr[1])))
+    except KeyboardInterrupt:
+        print("\n[Backend] Shutting down server.")
+    except socket.error as e: 
+        print(("Socket error: {}".format(e)))
+    finally:
+        try:
+            server.close()
+        except Exception:
+            pass
             #
             #  TODO: implement the step of the client incomping connection
             #        using multi-thread programming with the
             #        provided handle_client routine
             #
-    except socket.error as e:
-      print(("Socket error: {}".format(e)))
 
 def create_backend(ip, port, routes={}):
     """
@@ -101,5 +112,14 @@ def create_backend(ip, port, routes={}):
     :param port (int): Port number to listen on.
     :param routes (dict, optional): Dictionary of route handlers. Defaults to empty dict.
     """
+    # if routes is None:
+    #     routes = {}
+    # if start_thead:
+    #     t = threading.Thread(target=run_backend, args=(ip, port, routes), daemon=daemonize)
+    #     t.start()
+    #     print(("[Backend] Backend server started in thread mode on {}:{}".format(ip, port)))
+    #     return t
+    
 
     run_backend(ip, port, routes)
+    # return None

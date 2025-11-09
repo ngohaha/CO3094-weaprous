@@ -18,6 +18,7 @@ This module provides a Request object to manage and persist
 request settings (cookies, auth, proxies).
 """
 from .dictionary import CaseInsensitiveDict
+from .utils import get_auth_from_url
 
 class Request():
     """The fully mutable "class" `Request <Request>` object,
@@ -46,6 +47,9 @@ class Request():
         "body",
         "routes",
         "hook",
+        "auth",
+        "body_override",
+        "content_type_override"
     ]
 
     def __init__(self):
@@ -65,6 +69,12 @@ class Request():
         self.routes = {}
         #: Hook point for routed mapped-path
         self.hook = None
+        
+        self.auth = False
+
+        self.body_override = None
+
+        self.content_type_override = None
 
     def extract_request_line(self, request):
         try:
@@ -115,12 +125,13 @@ class Request():
             #
 
         self.headers = self.prepare_headers(request)
+        self.body = self.prepare_body(request)
         cookies = self.headers.get('cookie', '')
-        self.cookies = self.parse_cookies(cookies)
+        # self.cookies = self.parse_cookies(cookies)
             #
             #  TODO: implement the cookie function here
             #        by parsing the header            #
-
+        self.headers["Cookie"] = self.prepare_cookies(self.headers)
         return
     
     def parse_cookies(self, cookie_header):
@@ -135,24 +146,51 @@ class Request():
                 cookies[key] = value
         return cookies
 
-    def prepare_body(self, data, files, json=None):
-        if json is not None:
-            import json as jsonlib
-            self.body = jsonlib.dumps(json)
-            self.headers["Content-Type"] = "application/json"
-        elif data is not None:
-            self.body = data
-            self.headers["Content-Type"] = "application/x-www-form-urlencoded"
+    def prepare_body(self, request):
+        # if json is not None:
+        #     import json as jsonlib
+        #     self.body = jsonlib.dumps(json)
+        #     self.headers["Content-Type"] = "application/json"
+        # elif data is not None:
+        #     self.body = data
+        #     self.headers["Content-Type"] = "application/x-www-form-urlencoded"
+        # else:
+        #     self.body = ''
+        data_form = {}
+        if self.path == '/connect':
+            try: 
+                first_line = request.splitlines()[0]
+                _, full_path, _ = first_line.split()
+                if '?' in full_path:
+                    path, query = full_path.split('?', 1)
+                    pairs = query.split('&')
+                    for p in pairs:
+                        if '=' in p:
+                            key, value = p.split('=', 1)
+                            data_form[key] = value
+                return data_form
+            except Exception as e:
+                print(("[Request] Connect parse error: {}".format(e)))
         else:
-            self.body = ''
+            try:
+                header_part, body_part = request.split('\r\n\r\n', 1)
+            except ValueError:
+                return None
+            pairs = body_part.split('&')
+            for p in pairs:
+                if '=' in p:
+                    key, value = p.split('=', 1)
+                    data_form[key] = value
+            
+            return data_form
 
-        self.prepare_content_length(self.body)
+        # self.prepare_content_length(self.body)
         # self.body = body
         #
         # TODO prepare the request authentication
         #
 	# self.auth = ...
-        return
+        # return
 
 
     def prepare_content_length(self, body):
@@ -173,25 +211,30 @@ class Request():
         # TODO prepare the request authentication
         #
 	# self.auth = ...
-        if not auth:
-            return
-        if isinstance(auth, tuple):
-            username, password = auth
-            auth_str = f"{username}:{password}"
-            auth_bytes = auth_str.encode('utf-8')
-            encode = base64.b64encode(auth_bytes).decode('ascii')
-            self.headers["Authorization"] = f"Basic {encode}"
-        else:
-            auth_header = auth.get_authorization_header(url)
-            if auth_header:
-                self.headers["Authorization"] = auth_header
+        # if not auth:
+        #     return
+        # if isinstance(auth, tuple):
+        #     username, password = auth
+        #     auth_str = f"{username}:{password}"
+        #     auth_bytes = auth_str.encode('utf-8')
+        #     encode = base64.b64encode(auth_bytes).decode('ascii')
+        #     self.headers["Authorization"] = f"Basic {encode}"
+        # else:
+        #     auth_header = auth.get_authorization_header(url)
+        #     if auth_header:
+        #         self.headers["Authorization"] = auth_header
+        # self.auth = get_auth_from_url(url)
+        # return
         return
 
     def prepare_cookies(self, cookies):
-        if not cookies:
-            return
-        if isinstance(cookies, dict):
-            cookies_header = '; '.join(f"{k}={v}" for k, v in cookies.items())
-        else:
-            cookies_header = str(cookies)
-        self.headers["Cookie"] = cookies_header
+        # if not cookies:
+        #     return
+        # if isinstance(cookies, dict):
+        #     cookies_header = '; '.join(f"{k}={v}" for k, v in cookies.items())
+        # else:
+        #     cookies_header = str(cookies)
+        # self.headers["Cookie"] = cookies_header
+        cookies = self.headers.get('cookie', '')
+        print("[Request-Cookie]: " + cookies if cookies != '' else "No cookie" )
+        return cookies

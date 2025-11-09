@@ -27,48 +27,110 @@ and can be configured via command-line arguments.
 import json
 import socket
 import argparse
-
+import os
+import threading
+import urllib
+import time
 from daemon.weaprous import WeApRous
 
 PORT = 8000  # Default port
 
 app = WeApRous()
+users_lock = threading.Lock()
+active_peers = {}
+peers_lock = threading.Lock()
+active_connections = {}
 
-@app.route('/login', methods=['POST', 'GET'])
+import json
+
+
+
+from daemon.response import Response
+users = {
+    "tien": "deptraiqua",
+    "admin": "password"
+}
+
+@app.route('/login', methods=['POST'])
 def login(headers="guest", body="anonymous"):
-    print("[DEBUG] Received body:", body)
-    """
-    Handle user login via POST request.
+    
+    print("[SampleApp] Handling POST /login request.")
+    if isinstance(body, str):
+        # thử parse JSON trước
+        try:
+            body = json.loads(body)
+        except json.JSONDecodeError:
+            # Nếu không phải JSON, parse form-urlencoded
+            body = dict(urllib.parse.parse_qsl(body))
 
-    This route simulates a login process and prints the provided headers and body
-    to the console.
+    username = body.get('username')
+    password = body.get('password')
 
-    :param headers (str): The request headers or user identifier.
-    :param body (str): The request body or login payload.
-    """
-    try: 
-        if isinstance(body, str):
-            try:
-                body = json.loads(body)
-            except Exception:
-                kv = {}
-                for item in body.split('&'):
-                    if '=' in item:
-                        k, v = item.split('=', 1)
-                        kv[k] = v
-                if kv:
-                    body = kv
-        username = (body or {}).get('username', '')
-        password = (body or {}).get('password', '')
-        print(("[SampleApp] Logging in {} to {}".format(headers, body)))
+    print(f"[SampleApp] Login attempt - User: {username}, Pass: {password}")
+    
 
-        if username == "tien" and password == "deptraiqua":
-            return ('application/json', json.dumps({"status":"success","message":"Login successful"}))
-        else:
-            return 'Login failed'
-    except Exception as e:
-        print(("[SampleApp] Login error: {}".format(e)))
-        return 'Login Failed'
+    is_valid = False
+    with users_lock:
+        if username in users and users[username] == password:
+            is_valid = True
+
+
+    if is_valid:
+        print(f"[SampleApp] User '{username}' authenticated successfully.")
+        ip = body.get('IP')
+        port = body.get('Port')
+
+        with peers_lock:
+            active_peers[username] = {"ip":ip, "port":port, "time":time.time()}
+            print(active_peers)
+        
+
+        return 'Login Success'
+    else:
+        print(f"[SampleApp] Authentication failed for user '{username}'.")
+        return 'Login Fail'
+
+# def login(headers="guest", body="anonymous"):
+#     import json
+
+#     print("[SampleApp] Handling POST /login request.")
+
+#     try:
+#         if isinstance(body, str):
+#             body = json.loads(body)
+#     except json.JSONDecodeError:
+#         body = {}
+
+#     username = body.get('username')
+#     password = body.get('password')
+
+#     print(f"[SampleApp] Login attempt - User: {username}, Pass: {password}")
+
+#     is_valid = False
+#     with users_lock:
+#         if username == "admin" and password == "password":
+#             is_valid = True
+
+#     if is_valid:
+#         html_content = """
+#         <html>
+#             <head>
+#                 <meta http-equiv="refresh" content="0;url=/index.html">
+#              </head>
+#             <body></body>
+#         </html>
+#     """
+#         cookie_to_set = "auth=true"
+#         return (html_content, cookie_to_set)
+
+#     else:
+#         print(f"[SampleApp] Authentication failed for user '{username}'.")
+#         html_content = "<html><body><h1>401 Unauthorized</h1><p>Invalid username or password.</p></body></html>"
+#         cookie_to_set = None
+#         return (html_content, cookie_to_set)
+
+
+
 
 @app.route('/hello', methods=['PUT'])
 def hello(headers, body):
